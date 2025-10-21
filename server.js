@@ -600,7 +600,7 @@ process.on('SIGINT', async () => {
     process.exit(0);
   } catch (error) {
     console.error('Error during shutdown:', error);
-    process.exit(1);s
+    process.exit(1);
   }
 });
 
