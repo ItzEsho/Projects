@@ -1,4 +1,3 @@
-// server.js
 import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
@@ -331,8 +330,10 @@ app.delete('/api/users/:userId/follow', authenticateToken, async (req, res) => {
 // POST ROUTES
 app.get('/api/posts', authenticateToken, async (req, res) => {
   try {
+    const { tag } = req.query;
+    const query = tag ? { tags: tag } : {};
     const posts = await db.collection('posts')
-      .find({})
+      .find(query)
       .sort({ createdAt: -1 })
       .limit(50)
       .toArray();
@@ -509,7 +510,6 @@ app.post('/api/posts/:postId/comments', authenticateToken, async (req, res) => {
 
     const populatedComment = { ...comment, author: user };
 
-    // Emit only to users in this post's room
     io.to(req.params.postId).emit('new-comment', { postId: req.params.postId, comment: populatedComment });
 
     res.status(201).json(populatedComment);
@@ -614,6 +614,57 @@ app.get('/api/chats/:chatId/messages', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get messages error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Global search endpoint
+app.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const query = req.query.q?.toLowerCase() || '';
+    if (!query) return res.json([]);
+
+    // Search users
+    const users = await db.collection('users')
+      .find({
+        $or: [
+          { username: new RegExp(query, 'i') },
+          { displayName: new RegExp(query, 'i') },
+        ],
+      }, { projection: { password: 0 } })
+      .limit(5)
+      .toArray()
+      .then(docs => docs.map(user => ({ ...user, type: 'user' })));
+
+    // Search posts
+    const posts = await db.collection('posts')
+      .find({
+        $or: [
+          { title: new RegExp(query, 'i') },
+          { content: new RegExp(query, 'i') },
+          { tags: new RegExp(query, 'i') },
+        ],
+      })
+      .limit(5)
+      .toArray()
+      .then(docs => docs.map(post => ({ ...post, type: 'post' })));
+
+    // Search tags as topics
+    const tags = await db.collection('posts')
+      .aggregate([
+        { $unwind: '$tags' },
+        { $match: { tags: new RegExp(query, 'i') } },
+        { $group: { _id: '$tags', name: { $first: '$tags' } } },
+        { $limit: 5 },
+      ])
+      .toArray()
+      .then(docs => docs.map(tag => ({ _id: tag._id, name: tag.name, type: 'tag' })));
+
+    // Combine results
+    const results = [...users, ...posts, ...tags].slice(0, 10);
+    res.json(results);
+  } catch (error) {
+    console.error('Global search error:', error);
+    res.status(500).json({ error: 'Server error during search' });
   }
 });
 

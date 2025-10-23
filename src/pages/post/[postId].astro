@@ -1,0 +1,84 @@
+---
+const { postId } = Astro.params;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post | SocialBlog</title>
+</head>
+<body>
+  <main class="container mx-auto px-4 py-8">
+    <div id="post-container">
+      <div id="loading" class="text-gray-600">Loading post...</div>
+      <div id="error" class="hidden text-red-600"></div>
+    </div>
+  </main>
+
+  <script>
+    async function loadPost() {
+      const postId = window.location.pathname.split('/').pop();
+      const token = localStorage.getItem('token');
+      const postContainer = document.getElementById('post-container');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+
+      if (!token) {
+        loading.classList.add('hidden');
+        error.textContent = 'Please log in to view posts.';
+        error.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:3001/api/posts/${postId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+        const post = await response.json();
+
+        loading.classList.add('hidden');
+
+        postContainer.innerHTML = `
+          <div class="bg-white p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-bold">${post.title}</h2>
+            <p class="text-gray-600 mt-2">${post.content}</p>
+            <p class="text-sm text-gray-500 mt-2">By ${post.author?.displayName || post.author?.username || 'Unknown'}</p>
+            ${post.tags && post.tags.length > 0 ? `
+              <div class="mt-2">
+                ${post.tags.map(tag => `
+                  <a href="/tag/${encodeURIComponent(tag)}" class="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm text-gray-700 mr-2 hover:bg-gray-300">#${tag}</a>
+                `).join('')}
+              </div>
+            ` : ''}
+            <div class="mt-4">
+              <h3 class="text-lg font-semibold">Comments</h3>
+              ${post.comments && post.comments.length > 0 ? `
+                <div class="space-y-2 mt-2">
+                  ${post.comments.map(comment => `
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                      <p class="text-gray-600">${comment.text}</p>
+                      <p class="text-sm text-gray-500">By ${comment.author?.displayName || comment.author?.username || 'Unknown'}</p>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : '<p class="text-gray-600">No comments yet.</p>'}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Error loading post:', err);
+        loading.classList.add('hidden');
+        error.textContent = `Failed to load post: ${err.message}`;
+        error.classList.remove('hidden');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPost);
+  </script>
+</body>
+</html>

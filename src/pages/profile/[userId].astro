@@ -1,11 +1,15 @@
 ---
-// src/pages/profile/[userId].astro
 import Layout from '../../layouts/Layout.astro';
+const { userId } = Astro.params;
 ---
+
 <Layout title="Profile">
   <div class="max-w-5xl mx-auto">
+    <!-- Error Message -->
+    <div id="error-message" class="hidden text-red-600 text-center p-4 mb-6 bg-red-50 rounded-lg"></div>
+
     <!-- Profile Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg overflow-hidden mb-6">
+    <div id="profile-header" class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg overflow-hidden mb-6 hidden">
       <div class="h-32"></div>
       <div class="bg-white px-6 pb-6">
         <div class="flex items-end -mt-16 mb-4">
@@ -15,17 +19,12 @@ import Layout from '../../layouts/Layout.astro';
             <p id="profile-username" class="text-gray-600"></p>
           </div>
           <div class="space-x-3">
-            <!-- Edit Button - Only for owner -->
             <button id="edit-profile-btn" class="hidden bg-yellow-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-yellow-600 transition">
               Edit Profile
             </button>
-            
-            <!-- Message Button -->
             <button id="message-btn" class="hidden bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
               Message
             </button>
-            
-            <!-- Follow/Unfollow Buttons -->
             <button id="follow-btn" class="hidden bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition">
               Follow
             </button>
@@ -34,12 +33,9 @@ import Layout from '../../layouts/Layout.astro';
             </button>
           </div>
         </div>
-        
-        <!-- Editable Bio -->
         <div id="bio-container">
           <p id="profile-bio" class="text-gray-700 mb-4"></p>
         </div>
-        
         <div class="flex space-x-8">
           <div>
             <span id="posts-count" class="font-bold text-xl">0</span>
@@ -58,7 +54,7 @@ import Layout from '../../layouts/Layout.astro';
     </div>
 
     <!-- User Posts -->
-    <div class="bg-white rounded-lg shadow-md p-6">
+    <div id="posts-container" class="bg-white rounded-lg shadow-md p-6 hidden">
       <h2 class="text-2xl font-bold mb-6">Posts</h2>
       <div id="user-posts" class="space-y-6">
         <div class="text-center py-8 text-gray-500">
@@ -66,35 +62,28 @@ import Layout from '../../layouts/Layout.astro';
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Edit Profile Modal -->
-  <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-      <h3 class="text-xl font-bold mb-4">Edit Profile</h3>
-      
-      <!-- Avatar Upload -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
-        <input type="file" id="avatar-input" accept="image/*" class="w-full p-2 border border-gray-300 rounded">
-        <img id="avatar-preview" class="mt-2 w-24 h-24 rounded-full object-cover hidden">
-      </div>
-      
-      <!-- Display Name -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
-        <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded">
-      </div>
-      
-      <!-- Bio -->
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-        <textarea id="edit-bio" rows="3" class="w-full p-2 border border-gray-300 rounded resize-none"></textarea>
-      </div>
-      
-      <div class="flex justify-end space-x-3">
-        <button id="cancel-edit" class="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50">Cancel</button>
-        <button id="save-edit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save</button>
+    <!-- Edit Profile Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">Edit Profile</h3>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+          <input type="file" id="avatar-input" accept="image/*" class="w-full p-2 border border-gray-300 rounded">
+          <img id="avatar-preview" class="mt-2 w-24 h-24 rounded-full object-cover hidden">
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
+          <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded">
+        </div>
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+          <textarea id="edit-bio" rows="3" class="w-full p-2 border border-gray-300 rounded resize-none"></textarea>
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button id="cancel-edit" class="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50">Cancel</button>
+          <button id="save-edit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save</button>
+        </div>
       </div>
     </div>
   </div>
@@ -103,56 +92,82 @@ import Layout from '../../layouts/Layout.astro';
     // @ts-nocheck
     const API_URL = 'http://localhost:3001/api';
     const token = localStorage.getItem('token');
-
-    if (!token) {
-      window.location.href = '/login';
-    }
-
     const userId = window.location.pathname.split('/').pop();
     let currentUser;
     let profileUser;
     let isOwner = false;
 
+    // Show error message
+    function showError(message) {
+      const errorMessage = document.getElementById('error-message');
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+      document.getElementById('profile-header').classList.add('hidden');
+      document.getElementById('posts-container').classList.add('hidden');
+    }
+
     // Load current user
     async function loadCurrentUser() {
-      const res = await fetch(`${API_URL}/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      currentUser = await res.json();
-      isOwner = currentUser._id === userId;
+      try {
+        const res = await fetch(`${API_URL}/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch current user: HTTP ${res.status}`);
+        }
+        currentUser = await res.json();
+        isOwner = currentUser._id === userId;
+      } catch (error) {
+        console.error('Error loading current user:', error);
+        showError('Please log in to view profiles.');
+        throw error; // Stop further execution
+      }
     }
 
     // Load profile
     async function loadProfile() {
-      const res = await fetch(`${API_URL}/users/${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      profileUser = await res.json();
-
-      // Update UI
-      document.getElementById('profile-avatar').src = profileUser.avatar;
-      document.getElementById('profile-name').textContent = profileUser.displayName;
-      document.getElementById('profile-username').textContent = '@' + profileUser.username;
-      document.getElementById('profile-bio').textContent = profileUser.bio || 'No bio yet';
-      document.getElementById('posts-count').textContent = profileUser.posts?.length || 0;
-      document.getElementById('followers-count').textContent = profileUser.followers?.length || 0;
-      document.getElementById('following-count').textContent = profileUser.following?.length || 0;
-
-      // Show appropriate buttons
-      if (isOwner) {
-        document.getElementById('edit-profile-btn').classList.remove('hidden');
-      } else {
-        document.getElementById('message-btn').classList.remove('hidden');
-        const isFollowing = currentUser.following?.includes(userId);
-        if (isFollowing) {
-          document.getElementById('unfollow-btn').classList.remove('hidden');
-        } else {
-          document.getElementById('follow-btn').classList.remove('hidden');
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Failed to fetch profile: HTTP ${res.status} - ${errorText}`);
         }
-      }
+        profileUser = await res.json();
 
-      // Load posts
-      loadPosts();
+        // Show profile and posts
+        document.getElementById('profile-header').classList.remove('hidden');
+        document.getElementById('posts-container').classList.remove('hidden');
+
+        // Update UI
+        document.getElementById('profile-avatar').src = profileUser.avatar;
+        document.getElementById('profile-name').textContent = profileUser.displayName || profileUser.username;
+        document.getElementById('profile-username').textContent = '@' + profileUser.username;
+        document.getElementById('profile-bio').textContent = profileUser.bio || 'No bio yet';
+        document.getElementById('posts-count').textContent = profileUser.posts?.length || 0;
+        document.getElementById('followers-count').textContent = profileUser.followers?.length || 0;
+        document.getElementById('following-count').textContent = profileUser.following?.length || 0;
+
+        // Show appropriate buttons
+        if (isOwner) {
+          document.getElementById('edit-profile-btn').classList.remove('hidden');
+        } else {
+          document.getElementById('message-btn').classList.remove('hidden');
+          const isFollowing = currentUser.following?.includes(userId);
+          if (isFollowing) {
+            document.getElementById('unfollow-btn').classList.remove('hidden');
+          } else {
+            document.getElementById('follow-btn').classList.remove('hidden');
+          }
+        }
+
+        // Load posts
+        loadPosts();
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        showError(`Failed to load profile: ${error.message}`);
+      }
     }
 
     // Load posts
@@ -161,11 +176,15 @@ import Layout from '../../layouts/Layout.astro';
       if (profileUser.posts?.length) {
         postsContainer.innerHTML = profileUser.posts.map(post => `
           <div class="border-b border-gray-200 pb-6">
-            <h3 class="text-xl font-bold mb-2">${post.title}</h3>
+            <h3 class="text-xl font-bold mb-2">
+              <a href="/post/${post._id}" class="hover:underline">${post.title}</a>
+            </h3>
             <p class="text-gray-700 mb-3">${post.content}</p>
             ${post.tags?.length ? `
               <div class="flex flex-wrap gap-2 mb-3">
-                ${post.tags.map(tag => `<span class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm">${tag}</span>`).join('')}
+                ${post.tags.map(tag => `
+                  <a href="/tag/${encodeURIComponent(tag)}" class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm hover:bg-blue-200">${tag}</a>
+                `).join('')}
               </div>
             ` : ''}
             <div class="flex items-center space-x-6 text-sm text-gray-500">
@@ -181,26 +200,20 @@ import Layout from '../../layouts/Layout.astro';
     }
 
     // Edit Profile Functionality
-    document.getElementById('edit-profile-btn').addEventListener('click', () => {
-      // Populate modal with current data
-      document.getElementById('edit-name').value = profileUser.displayName;
+    document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+      document.getElementById('edit-name').value = profileUser.displayName || profileUser.username;
       document.getElementById('edit-bio').value = profileUser.bio || '';
-      
-      // Show avatar preview
       const avatarPreview = document.getElementById('avatar-preview');
       avatarPreview.src = profileUser.avatar;
       avatarPreview.classList.remove('hidden');
-      
       document.getElementById('edit-modal').classList.remove('hidden');
     });
 
-    // Cancel edit
-    document.getElementById('cancel-edit').addEventListener('click', () => {
+    document.getElementById('cancel-edit')?.addEventListener('click', () => {
       document.getElementById('edit-modal').classList.add('hidden');
     });
 
-    // Avatar upload preview
-    document.getElementById('avatar-input').addEventListener('change', (e) => {
+    document.getElementById('avatar-input')?.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
         const reader = new FileReader();
@@ -211,15 +224,10 @@ import Layout from '../../layouts/Layout.astro';
       }
     });
 
-    // Save edits
-    document.getElementById('save-edit').addEventListener('click', async () => {
+    document.getElementById('save-edit')?.addEventListener('click', async () => {
       const formData = new FormData();
-      
-      // Add text fields
       formData.append('displayName', document.getElementById('edit-name').value);
       formData.append('bio', document.getElementById('edit-bio').value);
-      
-      // Add avatar if changed
       const avatarFile = document.getElementById('avatar-input').files[0];
       if (avatarFile) {
         formData.append('avatar', avatarFile);
@@ -231,60 +239,65 @@ import Layout from '../../layouts/Layout.astro';
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData
         });
-
-        if (res.ok) {
-          // Close modal and reload profile
-          document.getElementById('edit-modal').classList.add('hidden');
-          loadProfile();
-          
-          // Show success message
-          alert('Profile updated successfully!');
-        } else {
-          alert('Failed to update profile');
+        if (!res.ok) {
+          throw new Error(`Failed to update profile: HTTP ${res.status}`);
         }
+        document.getElementById('edit-modal').classList.add('hidden');
+        loadProfile();
+        alert('Profile updated successfully!');
       } catch (error) {
         console.error('Error updating profile:', error);
-        alert('Error updating profile');
+        alert(`Error updating profile: ${error.message}`);
       }
     });
 
-    // Follow/Unfollow
-    document.getElementById('follow-btn').addEventListener('click', async () => {
-      await fetch(`${API_URL}/users/${userId}/follow`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      location.reload();
+    document.getElementById('follow-btn')?.addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to follow user');
+        location.reload();
+      } catch (error) {
+        console.error('Error following user:', error);
+        alert('Failed to follow user');
+      }
     });
 
-    document.getElementById('unfollow-btn').addEventListener('click', async () => {
-      await fetch(`${API_URL}/users/${userId}/follow`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      location.reload();
+    document.getElementById('unfollow-btn')?.addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to unfollow user');
+        location.reload();
+      } catch (error) {
+        console.error('Error unfollowing user:', error);
+        alert('Failed to unfollow user');
+      }
     });
 
-    // Message button
-    document.getElementById('message-btn').addEventListener('click', () => {
+    document.getElementById('message-btn')?.addEventListener('click', () => {
       window.location.href = `/chat?user=${userId}`;
     });
 
-    // Click outside modal to close
-    document.getElementById('edit-modal').addEventListener('click', (e) => {
+    document.getElementById('edit-modal')?.addEventListener('click', (e) => {
       if (e.target.id === 'edit-modal') {
         document.getElementById('edit-modal').classList.add('hidden');
       }
     });
 
     // Initialize
-    loadCurrentUser().then(loadProfile);
+    if (!token) {
+      showError('Please log in to view profiles.');
+    } else {
+      loadCurrentUser().then(loadProfile).catch(() => {});
+    }
   </script>
 
   <style>
-    /* Ensure modal is properly centered */
-    #edit-modal {
-      z-index: 50;
-    }
+    #edit-modal { z-index: 50; }
   </style>
 </Layout>

@@ -1,0 +1,70 @@
+---
+const { tag } = Astro.params;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Posts tagged #{tag} | SocialBlog</title>
+</head>
+<body>
+  <main class="container mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-6">Posts tagged #{tag}</h1>
+    <div id="posts-container" class="space-y-4">
+      <div id="loading" class="text-gray-600">Loading...</div>
+      <div id="no-posts" class="hidden text-gray-600">No posts found for #{tag}.</div>
+    </div>
+  </main>
+
+  <script>
+    async function loadPosts() {
+      const tag = decodeURIComponent(window.location.pathname.split('/').pop());
+      const token = localStorage.getItem('token');
+      const postsContainer = document.getElementById('posts-container');
+      const loading = document.getElementById('loading');
+      const noPosts = document.getElementById('no-posts');
+
+      try {
+        const response = await fetch(`http://localhost:3001/api/posts?tag=${encodeURIComponent(tag)}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
+        if (!response.ok) throw new Error('Failed to fetch posts');
+        const posts = await response.json();
+
+        loading.classList.add('hidden');
+
+        if (posts.length === 0) {
+          noPosts.classList.remove('hidden');
+          return;
+        }
+
+        const postsHtml = posts.map(post => `
+          <div class="bg-white p-4 rounded-lg shadow-md">
+            <a href="/post/${post._id}" class="text-lg font-semibold text-blue-600 hover:underline">${post.title}</a>
+            <p class="text-gray-600 mt-2">${post.content.substring(0, 100)}...</p>
+            <p class="text-sm text-gray-500 mt-2">By ${post.author?.displayName || post.author?.username || 'Unknown'}</p>
+            ${post.tags && post.tags.length > 0 ? `
+              <div class="mt-2">
+                ${post.tags.map(tag => `
+                  <a href="/tag/${encodeURIComponent(tag)}" class="inline-block bg-gray-200 rounded-full px-3 py-1 text-sm text-gray-700 mr-2 hover:bg-gray-300">#${tag}</a>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+
+        postsContainer.innerHTML = postsHtml;
+      } catch (error) {
+        console.error('Error loading posts:', error);
+        loading.classList.add('hidden');
+        noPosts.classList.remove('hidden');
+      }
+    }
+
+    // Load posts when the page loads
+    document.addEventListener('DOMContentLoaded', loadPosts);
+  </script>
+</body>
+</html>

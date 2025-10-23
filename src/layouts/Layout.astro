@@ -1,5 +1,4 @@
 ---
-// src/layouts/Layout.astro
 const { title } = Astro.props;
 ---
 <!DOCTYPE html>
@@ -27,13 +26,19 @@ const { title } = Astro.props;
         </a>
 
         <!-- Search Bar -->
-        <div class="hidden md:flex flex-1 max-w-md mx-8">
+        <div class="hidden md:flex flex-1 max-w-md mx-8 relative">
           <input
             type="text"
             id="global-search"
-            placeholder="Search users, posts, topics..."
+            placeholder="Search users, posts, tags..."
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
+          <!-- Search Results Dropdown -->
+          <div id="search-results" class="hidden absolute top-full left-0 w-full bg-white rounded-lg shadow-lg mt-2 max-h-96 overflow-y-auto z-50">
+            <div id="search-loading" class="hidden px-4 py-2 text-gray-600">Loading...</div>
+            <div id="search-no-results" class="hidden px-4 py-2 text-gray-600">No results found</div>
+            <div id="search-results-list" class="divide-y divide-gray-200"></div>
+          </div>
         </div>
 
         <!-- Navigation Links -->
@@ -136,11 +141,11 @@ const { title } = Astro.props;
       fetch('http://localhost:3001/api/users/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
-      .then(user => {
-        document.getElementById('nav-avatar').src = user.avatar;
-        document.getElementById('my-profile-link').href = `/profile/${user._id}`;
-      });
+        .then(res => res.json())
+        .then(user => {
+          document.getElementById('nav-avatar').src = user.avatar;
+          document.getElementById('my-profile-link').href = `/profile/${user._id}`;
+        });
     }
 
     // Toggle user dropdown
@@ -148,10 +153,13 @@ const { title } = Astro.props;
       document.getElementById('user-dropdown').classList.toggle('hidden');
     });
 
-    // Close dropdown when clicking outside
+    // Close dropdown and search results when clicking outside
     document.addEventListener('click', (e) => {
       if (!document.getElementById('user-menu')?.contains(e.target)) {
         document.getElementById('user-dropdown')?.classList.add('hidden');
+      }
+      if (!document.getElementById('global-search')?.contains(e.target) && !document.getElementById('search-results')?.contains(e.target)) {
+        document.getElementById('search-results')?.classList.add('hidden');
       }
     });
 
@@ -159,6 +167,95 @@ const { title } = Astro.props;
     document.getElementById('logout-btn')?.addEventListener('click', () => {
       localStorage.removeItem('token');
       window.location.href = '/login';
+    });
+
+    // Search functionality
+    const searchInput = document.getElementById('global-search');
+    const searchResults = document.getElementById('search-results');
+    const searchResultsList = document.getElementById('search-results-list');
+    const searchLoading = document.getElementById('search-loading');
+    const searchNoResults = document.getElementById('search-no-results');
+
+    // Debounce function to limit API calls
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // Function to fetch and display search results
+    async function performSearch(query) {
+      if (!query.trim()) {
+        searchResults.classList.add('hidden');
+        return;
+      }
+
+      searchResults.classList.remove('hidden');
+      searchLoading.classList.remove('hidden');
+      searchNoResults.classList.add('hidden');
+      searchResultsList.innerHTML = '';
+
+      try {
+        const response = await fetch(`http://localhost:3001/search?q=${encodeURIComponent(query)}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
+        if (!response.ok) throw new Error('Search request failed');
+        const results = await response.json();
+
+        searchLoading.classList.add('hidden');
+
+        if (results.length === 0) {
+          searchNoResults.classList.remove('hidden');
+          return;
+        }
+
+        // Display results
+        results.forEach(item => {
+          const resultItem = document.createElement('a');
+          resultItem.className = 'block px-4 py-2 hover:bg-gray-100 flex items-center space-x-3';
+
+          if (item.type === 'user') {
+            resultItem.href = `/profile/${item._id}`;
+            resultItem.innerHTML = `
+              <img src="${item.avatar}" class="w-8 h-8 rounded-full" alt="${item.username}" />
+              <span class="text-gray-700">${item.displayName || item.username}</span>
+            `;
+          } else if (item.type === 'post') {
+            resultItem.href = `/post/${item._id}`;
+            resultItem.innerHTML = `
+              <span class="text-gray-700">${item.title || item.content.substring(0, 50)}...</span>
+            `;
+          } else if (item.type === 'tag') {
+            resultItem.href = `/tag/${encodeURIComponent(item.name)}`;
+            resultItem.innerHTML = `
+              <span class="text-gray-700">#${item.name}</span>
+            `;
+          }
+
+          searchResultsList.appendChild(resultItem);
+        });
+      } catch (error) {
+        console.error('Search error:', error);
+        searchLoading.classList.add('hidden');
+        searchNoResults.classList.remove('hidden');
+      }
+    }
+
+    // Debounced search handler
+    const debouncedSearch = debounce(performSearch, 300);
+
+    // Add input event listener for search
+    searchInput?.addEventListener('input', (e) => {
+      debouncedSearch(e.target.value);
+    });
+
+    // Clear search results when input is cleared
+    searchInput?.addEventListener('change', (e) => {
+      if (!e.target.value.trim()) {
+        searchResults.classList.add('hidden');
+      }
     });
   </script>
 </body>
